@@ -51,42 +51,16 @@ async function buscar(tabela, params) {
 }
 
 async function compararFotos(base64A, mimeA, descA, base64B, mimeB, descB) {
-  const prompt = `Você é um especialista em identificar animais de estimação por foto e descrição, ajudando a reencontrar pets perdidos.
-
-Descrição do pet PERDIDO: ${descA}
-Descrição do animal ENCONTRADO: ${descB}
-
-Compare as duas fotos e descrições. Responda APENAS com um JSON válido, sem markdown, sem texto antes ou depois, exatamente neste formato:
-{"mesmoAnimal": true, "pontuacao": 0, "motivo": "texto"}
-
-Onde "pontuacao" vai de 0 a 100 (chance de ser o mesmo animal) e "motivo" é uma explicação curta em português, no máximo 20 palavras.`;
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('/api/compare', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mimeA, data: base64A } },
-            { type: 'image', source: { type: 'base64', media_type: mimeB, data: base64B } },
-            { type: 'text', text: prompt },
-          ],
-        },
-      ],
-    }),
+    body: JSON.stringify({ base64A, mimeA, descA, base64B, mimeB, descB }),
   });
-  const data = await response.json();
-  const texto = (data.content || []).map((b) => b.text || '').join('').trim();
-  const limpo = texto.replace(/```json|```/g, '').trim();
-  try {
-    return JSON.parse(limpo);
-  } catch {
-    return { mesmoAnimal: false, pontuacao: 0, motivo: 'Não foi possível analisar essa comparação.' };
+  if (!response.ok) {
+    const erro = await response.json().catch(() => ({}));
+    throw new Error(erro.error || 'Falha ao comparar fotos com a IA');
   }
+  return response.json();
 }
 
 const ESPECIES = ['Cachorro', 'Gato', 'Passarinho', 'Outro'];
@@ -351,8 +325,8 @@ function FormularioEncontrado({ onSucesso }) {
               score_similaridade: resultado.pontuacao,
             });
           }
-        } catch {
-          // ignora candidato com erro e segue para o próximo
+        } catch (erroComparacao) {
+          comparacoes.push({ candidato, resultado: { pontuacao: 0, motivo: 'Erro ao comparar: ' + erroComparacao.message } });
         }
       }
 

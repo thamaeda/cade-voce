@@ -92,9 +92,9 @@ async function compararFotos(base64A, mimeA, descA, base64B, mimeB, descB) {
 
 const ESPECIES = ['Cachorro', 'Gato', 'Passarinho', 'Outro'];
 
-function CampoTexto({ label, ...props }) {
+function CampoTexto({ label, full, ...props }) {
   return (
-    <label style={{ display: 'block', marginBottom: 14 }}>
+    <label style={{ display: 'block', gridColumn: full ? '1 / -1' : 'auto' }}>
       <span style={{ fontFamily: 'Work Sans', fontSize: 13, fontWeight: 600, color: '#3A2E22' }}>{label}</span>
       <input
         {...props}
@@ -116,9 +116,9 @@ function CampoTexto({ label, ...props }) {
   );
 }
 
-function CampoSelect({ label, options, ...props }) {
+function CampoSelect({ label, options, full, ...props }) {
   return (
-    <label style={{ display: 'block', marginBottom: 14 }}>
+    <label style={{ display: 'block', gridColumn: full ? '1 / -1' : 'auto' }}>
       <span style={{ fontFamily: 'Work Sans', fontSize: 13, fontWeight: 600, color: '#3A2E22' }}>{label}</span>
       <select
         {...props}
@@ -141,6 +141,14 @@ function CampoSelect({ label, options, ...props }) {
         ))}
       </select>
     </label>
+  );
+}
+
+function Grade({ children }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px', marginBottom: 16 }}>
+      {children}
+    </div>
   );
 }
 
@@ -270,7 +278,7 @@ function FormularioPerdido({ onSucesso }) {
   };
 
   return (
-    <Flyer rotate={-1.5}>
+    <Flyer rotate={0}>
       <h2 style={{ fontFamily: 'Caveat', fontSize: 34, color: '#3A2E22', margin: '0 0 4px', textAlign: 'center' }}>
         Perdi meu bichinho 💔
       </h2>
@@ -278,14 +286,16 @@ function FormularioPerdido({ onSucesso }) {
         Preencha os dados para que quem encontrar seu pet possa te achar
       </p>
       <CampoFoto preview={preview} onChange={escolherFoto} />
-      <CampoSelect label="Espécie" options={ESPECIES} value={form.especie} onChange={set('especie')} />
-      <CampoTexto label="Seu nome" value={form.nome_tutor} onChange={set('nome_tutor')} placeholder="Ex: Ana Souza" />
-      <CampoTexto label="Contato (telefone/whatsapp)" value={form.contato} onChange={set('contato')} placeholder="Ex: (11) 99999-9999" />
-      <CampoTexto label="Raça" value={form.raca} onChange={set('raca')} placeholder="Ex: SRD, Poodle..." />
-      <CampoTexto label="Cor" value={form.cor} onChange={set('cor')} placeholder="Ex: Caramelo com branco" />
-      <CampoTexto label="Tamanho" value={form.tamanho} onChange={set('tamanho')} placeholder="Ex: Pequeno, médio, grande" />
-      <CampoTexto label="Características marcantes" value={form.caracteristicas} onChange={set('caracteristicas')} placeholder="Ex: usa coleira azul, manca da pata" />
-      <CampoTexto label="Onde foi visto pela última vez" value={form.localizacao_texto} onChange={set('localizacao_texto')} placeholder="Ex: Praça da Rua X, bairro Y" />
+      <Grade>
+        <CampoSelect label="Espécie" options={ESPECIES} value={form.especie} onChange={set('especie')} />
+        <CampoTexto label="Raça" value={form.raca} onChange={set('raca')} placeholder="Ex: SRD, Poodle..." />
+        <CampoTexto label="Cor" value={form.cor} onChange={set('cor')} placeholder="Ex: Caramelo com branco" />
+        <CampoTexto label="Tamanho" value={form.tamanho} onChange={set('tamanho')} placeholder="Ex: Pequeno, médio, grande" />
+        <CampoTexto label="Seu nome" value={form.nome_tutor} onChange={set('nome_tutor')} placeholder="Ex: Ana Souza" />
+        <CampoTexto label="Contato (telefone/whatsapp)" value={form.contato} onChange={set('contato')} placeholder="Ex: (11) 99999-9999" />
+        <CampoTexto full label="Características marcantes" value={form.caracteristicas} onChange={set('caracteristicas')} placeholder="Ex: usa coleira azul, manca da pata" />
+        <CampoTexto full label="Onde foi visto pela última vez" value={form.localizacao_texto} onChange={set('localizacao_texto')} placeholder="Ex: Praça da Rua X, bairro Y" />
+      </Grade>
       {erro && <p style={{ color: '#B34A3C', fontFamily: 'Work Sans', fontSize: 13 }}>{erro}</p>}
       <Botao onClick={enviar} disabled={enviando}>
         {enviando ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
@@ -366,7 +376,7 @@ function FormularioEncontrado({ onSucesso }) {
 
   return (
     <div>
-      <Flyer rotate={1.2}>
+      <Flyer rotate={0}>
         <h2 style={{ fontFamily: 'Caveat', fontSize: 34, color: '#3A2E22', margin: '0 0 4px', textAlign: 'center' }}>
           Encontrei um bichinho 🐾
         </h2>
@@ -374,13 +384,15 @@ function FormularioEncontrado({ onSucesso }) {
           Suba uma foto e a IA procura por possíveis tutores
         </p>
         <CampoFoto preview={preview} onChange={escolherFoto} />
-        <CampoSelect label="Espécie" options={ESPECIES} value={form.especie} onChange={set('especie')} />
-        <CampoTexto label="Seu nome" value={form.nome_quem_achou} onChange={set('nome_quem_achou')} placeholder="Ex: Carlos Lima" />
-        <CampoTexto label="Contato (telefone/whatsapp)" value={form.contato} onChange={set('contato')} placeholder="Ex: (11) 99999-9999" />
-        <CampoTexto label="Cor" value={form.cor} onChange={set('cor')} placeholder="Ex: Preto e branco" />
-        <CampoTexto label="Tamanho" value={form.tamanho} onChange={set('tamanho')} placeholder="Ex: Pequeno, médio, grande" />
-        <CampoTexto label="Características marcantes" value={form.caracteristicas} onChange={set('caracteristicas')} placeholder="Ex: sem coleira, muito dócil" />
-        <CampoTexto label="Onde foi encontrado" value={form.localizacao_texto} onChange={set('localizacao_texto')} placeholder="Ex: Av. Principal, bairro Z" />
+        <Grade>
+          <CampoSelect label="Espécie" options={ESPECIES} value={form.especie} onChange={set('especie')} />
+          <CampoTexto label="Cor" value={form.cor} onChange={set('cor')} placeholder="Ex: Preto e branco" />
+          <CampoTexto label="Tamanho" value={form.tamanho} onChange={set('tamanho')} placeholder="Ex: Pequeno, médio, grande" />
+          <CampoTexto label="Seu nome" value={form.nome_quem_achou} onChange={set('nome_quem_achou')} placeholder="Ex: Carlos Lima" />
+          <CampoTexto full label="Contato (telefone/whatsapp)" value={form.contato} onChange={set('contato')} placeholder="Ex: (11) 99999-9999" />
+          <CampoTexto full label="Características marcantes" value={form.caracteristicas} onChange={set('caracteristicas')} placeholder="Ex: sem coleira, muito dócil" />
+          <CampoTexto full label="Onde foi encontrado" value={form.localizacao_texto} onChange={set('localizacao_texto')} placeholder="Ex: Av. Principal, bairro Z" />
+        </Grade>
         {erro && <p style={{ color: '#B34A3C', fontFamily: 'Work Sans', fontSize: 13 }}>{erro}</p>}
         <Botao onClick={enviar} disabled={enviando || analisando}>
           {(enviando || analisando) ? <Loader2 size={18} className="animate-spin" /> : <PawPrint size={18} />}

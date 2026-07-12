@@ -20,10 +20,37 @@ async function uploadFoto(file) {
   return `${SUPABASE_URL}/storage/v1/object/public/fotos-pets/${path}`;
 }
 
-function fileToBase64(file) {
+function carregarImagemRedimensionada(src, maxDim = 800, qualidade = 0.75) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > height && width > maxDim) {
+        height = Math.round((height * maxDim) / width);
+        width = maxDim;
+      } else if (height >= width && height > maxDim) {
+        width = Math.round((width * maxDim) / height);
+        height = maxDim;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', qualidade).split(',')[1]);
+    };
+    img.onerror = () => reject(new Error('Não foi possível carregar a imagem para comparação'));
+    img.src = src;
+  });
+}
+
+function arquivoParaBase64Reduzido(file, maxDim = 800, qualidade = 0.75) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onload = () => {
+      carregarImagemRedimensionada(reader.result, maxDim, qualidade).then(resolve).catch(reject);
+    };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
@@ -300,23 +327,16 @@ function FormularioEncontrado({ onSucesso }) {
       setAnalisando(true);
 
       const candidatos = await buscar('pets_perdidos', { especie: `eq.${form.especie}`, status: 'eq.procurando', select: '*' });
-      const base64Encontrado = await fileToBase64(foto);
-      const mimeEncontrado = foto.type;
+      const base64Encontrado = await arquivoParaBase64Reduzido(foto);
+      const mimeEncontrado = 'image/jpeg';
 
       const comparacoes = [];
       for (const candidato of candidatos.slice(0, 8)) {
         try {
-          const fotoResp = await fetch(candidato.foto_url);
-          const blob = await fotoResp.blob();
-          const base64Candidato = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result.split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
+          const base64Candidato = await carregarImagemRedimensionada(candidato.foto_url);
           const descA = `${candidato.especie}, raça ${candidato.raca || 'não informada'}, cor ${candidato.cor || '?'}, tamanho ${candidato.tamanho || '?'}, características: ${candidato.caracteristicas || 'nenhuma'}, visto em: ${candidato.localizacao_texto}`;
           const descB = `${form.especie}, cor ${form.cor || '?'}, tamanho ${form.tamanho || '?'}, características: ${form.caracteristicas || 'nenhuma'}, encontrado em: ${form.localizacao_texto}`;
-          const resultado = await compararFotos(base64Candidato, blob.type || 'image/jpeg', descA, base64Encontrado, mimeEncontrado, descB);
+          const resultado = await compararFotos(base64Candidato, 'image/jpeg', descA, base64Encontrado, mimeEncontrado, descB);
           comparacoes.push({ candidato, resultado });
           if (resultado.pontuacao >= 60) {
             await inserir('matches', {

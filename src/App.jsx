@@ -92,6 +92,60 @@ async function compararFotos(base64A, mimeA, descA, base64B, mimeB, descB) {
 
 const ESPECIES = ['Cachorro', 'Gato', 'Passarinho', 'Outro'];
 
+const RACAS = {
+  Cachorro: [
+    'SRD (Vira-lata)', 'Labrador Retriever', 'Golden Retriever', 'Poodle', 'Bulldog Francês',
+    'Bulldog Inglês', 'Pastor Alemão', 'Shih Tzu', 'Yorkshire Terrier', 'Pinscher',
+    'Beagle', 'Rottweiler', 'Chihuahua', 'Dachshund (Salsicha)', 'Border Collie',
+    'Boxer', 'Husky Siberiano', 'Lhasa Apso', 'Maltês', 'Pug', 'Spitz Alemão (Lulu da Pomerânia)',
+    'Akita', 'Cocker Spaniel', 'Basset Hound', 'Schnauzer',
+  ],
+  Gato: [
+    'SRD (Vira-lata)', 'Persa', 'Siamês', 'Maine Coon', 'Angorá', 'Sphynx',
+    'British Shorthair', 'Ragdoll', 'Bengal', 'Munchkin', 'Himalaio', 'Azul Russo',
+    'Exótico de Pelo Curto', 'Sagrado da Birmânia',
+  ],
+  Passarinho: [
+    'Calopsita', 'Periquito Australiano', 'Periquito Comum', 'Canário', 'Agapornis',
+    'Papagaio Verdadeiro', 'Curió', 'Bicudo', 'Coleiro', 'Diamante Mandarim', 'Rolinha',
+    'Tico-tico', 'Trinca-ferro', 'Arara', 'Cacatua',
+  ],
+  Outro: [],
+};
+
+function CampoRaca({ especie, value, onChange }) {
+  const opcoes = RACAS[especie] || [];
+  return (
+    <label style={{ display: 'block' }}>
+      <span style={{ fontFamily: 'Work Sans', fontSize: 13, fontWeight: 600, color: '#3A2E22' }}>Raça</span>
+      <input
+        list="lista-racas"
+        value={value}
+        onChange={onChange}
+        placeholder="Comece a digitar ou escolha da lista"
+        style={{
+          width: '100%',
+          marginTop: 6,
+          padding: '10px 12px',
+          border: '1.5px solid #D8C9A8',
+          borderRadius: 6,
+          fontFamily: 'Work Sans',
+          fontSize: 14,
+          color: '#3A2E22',
+          background: '#FFFDF8',
+          outline: 'none',
+          boxSizing: 'border-box',
+        }}
+      />
+      <datalist id="lista-racas">
+        {opcoes.map((o) => (
+          <option key={o} value={o} />
+        ))}
+      </datalist>
+    </label>
+  );
+}
+
 function CampoTexto({ label, full, ...props }) {
   return (
     <label style={{ display: 'block', gridColumn: full ? '1 / -1' : 'auto' }}>
@@ -288,7 +342,7 @@ function FormularioPerdido({ onSucesso }) {
       <CampoFoto preview={preview} onChange={escolherFoto} />
       <Grade>
         <CampoSelect label="Espécie" options={ESPECIES} value={form.especie} onChange={set('especie')} />
-        <CampoTexto label="Raça" value={form.raca} onChange={set('raca')} placeholder="Ex: SRD, Poodle..." />
+        <CampoRaca especie={form.especie} value={form.raca} onChange={set('raca')} />
         <CampoTexto label="Cor" value={form.cor} onChange={set('cor')} placeholder="Ex: Caramelo com branco" />
         <CampoTexto label="Tamanho" value={form.tamanho} onChange={set('tamanho')} placeholder="Ex: Pequeno, médio, grande" />
         <CampoTexto label="Seu nome" value={form.nome_tutor} onChange={set('nome_tutor')} placeholder="Ex: Ana Souza" />

@@ -266,7 +266,7 @@ function Botao({ children, disabled, style, ...props }) {
   );
 }
 
-function Flyer({ rotate, children }) {
+function Flyer({ rotate, pinColor = '#B34A3C', children }) {
   return (
     <div
       style={{
@@ -282,7 +282,7 @@ function Flyer({ rotate, children }) {
     >
       <Pin
         size={26}
-        color="#B34A3C"
+        color={pinColor}
         style={{
           position: 'absolute',
           top: -14,
@@ -296,12 +296,55 @@ function Flyer({ rotate, children }) {
   );
 }
 
+function ResultadosMatch({ resultados, mensagemVazia, rotuloContato }) {
+  if (!resultados) return null;
+  return (
+    <div style={{ maxWidth: 420, margin: '28px auto 0' }}>
+      <h3 style={{ fontFamily: 'Caveat', fontSize: 26, color: '#3A2E22', textAlign: 'center' }}>Resultado da análise</h3>
+      {resultados.length === 0 && (
+        <p style={{ fontFamily: 'Work Sans', fontSize: 13, color: '#7A6A50', textAlign: 'center' }}>{mensagemVazia}</p>
+      )}
+      {resultados.map(({ candidato, resultado }, i) => (
+        <div
+          key={i}
+          style={{
+            background: '#FFFDF8',
+            border: `1.5px solid ${resultado.pontuacao >= 60 ? '#5C7A5E' : '#D8C9A8'}`,
+            borderRadius: 8,
+            padding: 14,
+            marginBottom: 10,
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+          }}
+        >
+          <img src={candidato.foto_url} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6 }} />
+          <div style={{ flex: 1, fontFamily: 'Work Sans' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#3A2E22', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {resultado.pontuacao >= 60 ? <CheckCircle2 size={16} color="#5C7A5E" /> : <X size={16} color="#A08A63" />}
+              {resultado.pontuacao}% de chance de ser o mesmo animal
+            </div>
+            <div style={{ fontSize: 12, color: '#7A6A50', marginTop: 2 }}>{resultado.motivo}</div>
+            {resultado.pontuacao >= 60 && (
+              <div style={{ fontSize: 12, color: '#5C7A5E', marginTop: 4 }}>
+                {rotuloContato}: {candidato.contato}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function FormularioPerdido({ onSucesso }) {
   const [form, setForm] = useState({ nome_tutor: '', contato: '', especie: 'Cachorro', raca: '', cor: '', tamanho: '', caracteristicas: '', localizacao_texto: '' });
   const [foto, setFoto] = useState(null);
   const [preview, setPreview] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [analisando, setAnalisando] = useState(false);
   const [erro, setErro] = useState('');
+  const [resultados, setResultados] = useState(null);
 
   const set = (campo) => (e) => setForm({ ...form, [campo]: e.target.value });
 
@@ -314,12 +357,42 @@ function FormularioPerdido({ onSucesso }) {
 
   const enviar = async () => {
     setErro('');
+    setResultados(null);
     if (!foto) { setErro('Escolha uma foto do seu pet.'); return; }
     if (!form.localizacao_texto) { setErro('Informe onde o pet foi visto pela última vez.'); return; }
     setEnviando(true);
     try {
       const foto_url = await uploadFoto(foto);
-      await inserir('pets_perdidos', { ...form, foto_url, data_perda: new Date().toISOString().slice(0, 10) });
+      const registro = await inserir('pets_perdidos', { ...form, foto_url, data_perda: new Date().toISOString().slice(0, 10) });
+
+      setEnviando(false);
+      setAnalisando(true);
+
+      const candidatos = await buscar('pets_encontrados', { especie: `eq.${form.especie}`, status: 'eq.aguardando_match', select: '*' });
+      const base64Perdido = await arquivoParaBase64Reduzido(foto);
+
+      const comparacoes = [];
+      for (const candidato of candidatos.slice(0, 8)) {
+        try {
+          const base64Candidato = await carregarImagemRedimensionada(candidato.foto_url);
+          const descA = `${form.especie}, raça ${form.raca || 'não informada'}, cor ${form.cor || '?'}, tamanho ${form.tamanho || '?'}, características: ${form.caracteristicas || 'nenhuma'}, visto em: ${form.localizacao_texto}`;
+          const descB = `${candidato.especie}, cor ${candidato.cor || '?'}, tamanho ${candidato.tamanho || '?'}, características: ${candidato.caracteristicas || 'nenhuma'}, encontrado em: ${candidato.localizacao_texto}`;
+          const resultado = await compararFotos(base64Perdido, 'image/jpeg', descA, base64Candidato, 'image/jpeg', descB);
+          comparacoes.push({ candidato, resultado });
+          if (resultado.pontuacao >= 60) {
+            await inserir('matches', {
+              pet_perdido_id: registro.id,
+              pet_encontrado_id: candidato.id,
+              score_similaridade: resultado.pontuacao,
+            });
+          }
+        } catch (erroComparacao) {
+          comparacoes.push({ candidato, resultado: { pontuacao: 0, motivo: 'Erro ao comparar: ' + erroComparacao.message } });
+        }
+      }
+
+      comparacoes.sort((a, b) => b.resultado.pontuacao - a.resultado.pontuacao);
+      setResultados(comparacoes);
       setForm({ nome_tutor: '', contato: '', especie: 'Cachorro', raca: '', cor: '', tamanho: '', caracteristicas: '', localizacao_texto: '' });
       setFoto(null);
       setPreview(null);
@@ -328,10 +401,12 @@ function FormularioPerdido({ onSucesso }) {
       setErro(e.message);
     } finally {
       setEnviando(false);
+      setAnalisando(false);
     }
   };
 
   return (
+    <>
     <Flyer rotate={0}>
       <h2 style={{ fontFamily: 'Caveat', fontSize: 34, color: '#3A2E22', margin: '0 0 4px', textAlign: 'center' }}>
         Perdi meu bichinho 💔
@@ -351,11 +426,18 @@ function FormularioPerdido({ onSucesso }) {
         <CampoTexto full label="Onde foi visto pela última vez" value={form.localizacao_texto} onChange={set('localizacao_texto')} placeholder="Ex: Praça da Rua X, bairro Y" />
       </Grade>
       {erro && <p style={{ color: '#B34A3C', fontFamily: 'Work Sans', fontSize: 13 }}>{erro}</p>}
-      <Botao onClick={enviar} disabled={enviando}>
-        {enviando ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
-        {enviando ? 'Enviando...' : 'Publicar cartaz de procura-se'}
+      <Botao onClick={enviar} disabled={enviando || analisando}>
+        {(enviando || analisando) ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+        {enviando ? 'Enviando...' : analisando ? 'IA verificando pets encontrados...' : 'Publicar cartaz de procura-se'}
       </Botao>
     </Flyer>
+
+    <ResultadosMatch
+      resultados={resultados}
+      mensagemVazia="Nenhum pet encontrado cadastrado dessa espécie ainda para comparar."
+      rotuloContato="Contato de quem achou"
+    />
+    </>
   );
 }
 
@@ -454,45 +536,11 @@ function FormularioEncontrado({ onSucesso }) {
         </Botao>
       </Flyer>
 
-      {resultados && (
-        <div style={{ maxWidth: 420, margin: '28px auto 0' }}>
-          <h3 style={{ fontFamily: 'Caveat', fontSize: 26, color: '#3A2E22', textAlign: 'center' }}>Resultado da análise</h3>
-          {resultados.length === 0 && (
-            <p style={{ fontFamily: 'Work Sans', fontSize: 13, color: '#7A6A50', textAlign: 'center' }}>
-              Nenhum pet perdido cadastrado dessa espécie ainda para comparar.
-            </p>
-          )}
-          {resultados.map(({ candidato, resultado }, i) => (
-            <div
-              key={i}
-              style={{
-                background: '#FFFDF8',
-                border: `1.5px solid ${resultado.pontuacao >= 60 ? '#5C7A5E' : '#D8C9A8'}`,
-                borderRadius: 8,
-                padding: 14,
-                marginBottom: 10,
-                display: 'flex',
-                gap: 12,
-                alignItems: 'center',
-              }}
-            >
-              <img src={candidato.foto_url} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6 }} />
-              <div style={{ flex: 1, fontFamily: 'Work Sans' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#3A2E22', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {resultado.pontuacao >= 60 ? <CheckCircle2 size={16} color="#5C7A5E" /> : <X size={16} color="#A08A63" />}
-                  {resultado.pontuacao}% de chance de ser o mesmo animal
-                </div>
-                <div style={{ fontSize: 12, color: '#7A6A50', marginTop: 2 }}>{resultado.motivo}</div>
-                {resultado.pontuacao >= 60 && (
-                  <div style={{ fontSize: 12, color: '#5C7A5E', marginTop: 4 }}>
-                    Contato do tutor: {candidato.contato}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <ResultadosMatch
+        resultados={resultados}
+        mensagemVazia="Nenhum pet perdido cadastrado dessa espécie ainda para comparar."
+        rotuloContato="Contato do tutor"
+      />
     </div>
   );
 }
@@ -539,12 +587,55 @@ function Feed({ atualizar }) {
   );
 }
 
+function FeedEncontrados({ atualizar }) {
+  const [encontrados, setEncontrados] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    setCarregando(true);
+    buscar('pets_encontrados', { select: '*', status: 'eq.aguardando_match', order: 'criado_em.desc' })
+      .then(setEncontrados)
+      .finally(() => setCarregando(false));
+  }, [atualizar]);
+
+  if (carregando) {
+    return <p style={{ textAlign: 'center', fontFamily: 'Work Sans', color: '#7A6A50' }}>Carregando cartazes...</p>;
+  }
+
+  if (encontrados.length === 0) {
+    return <p style={{ textAlign: 'center', fontFamily: 'Work Sans', color: '#7A6A50' }}>Nenhum pet encontrado cadastrado ainda.</p>;
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 32, maxWidth: 900, margin: '0 auto', padding: '10px 0' }}>
+      {encontrados.map((p, i) => (
+        <Flyer key={p.id} rotate={i % 2 === 0 ? -1.5 : 1.5} pinColor="#5C7A5E">
+          <img src={p.foto_url} alt={p.especie} style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 4, marginBottom: 10 }} />
+          <h3 style={{ fontFamily: 'Caveat', fontSize: 26, color: '#3A2E22', margin: '0 0 4px', textAlign: 'center' }}>
+            Encontramos um(a) {p.especie.toLowerCase()}
+          </h3>
+          <p style={{ fontFamily: 'Work Sans', fontSize: 12.5, color: '#5A4A38', lineHeight: 1.5, margin: '0 0 8px' }}>
+            <MapPin size={12} style={{ display: 'inline', marginRight: 4 }} />
+            {p.localizacao_texto}<br />
+            {p.cor && <>Cor: {p.cor}<br /></>}
+            {p.caracteristicas}
+          </p>
+          <div style={{ borderTop: '1px dashed #C9A876', paddingTop: 8, fontFamily: 'Work Sans', fontSize: 12, color: '#7A6A50', textAlign: 'center' }}>
+            Contato: {p.contato}
+          </div>
+        </Flyer>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [aba, setAba] = useState('feed');
   const [atualizar, setAtualizar] = useState(0);
 
   const abas = [
     { id: 'feed', label: 'Mural' },
+    { id: 'achados', label: 'Achados' },
     { id: 'perdi', label: 'Perdi meu pet' },
     { id: 'achei', label: 'Encontrei um pet' },
   ];
@@ -599,7 +690,8 @@ export default function App() {
       </div>
 
       {aba === 'feed' && <Feed atualizar={atualizar} />}
-      {aba === 'perdi' && <FormularioPerdido onSucesso={() => { setAtualizar((n) => n + 1); setAba('feed'); }} />}
+      {aba === 'achados' && <FeedEncontrados atualizar={atualizar} />}
+      {aba === 'perdi' && <FormularioPerdido onSucesso={() => setAtualizar((n) => n + 1)} />}
       {aba === 'achei' && <FormularioEncontrado onSucesso={() => setAtualizar((n) => n + 1)} />}
 
       <p style={{ textAlign: 'center', fontFamily: 'Work Sans', fontSize: 11, color: '#5A4A38', marginTop: 40, opacity: 0.7 }}>

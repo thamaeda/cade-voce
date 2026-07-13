@@ -301,6 +301,9 @@ function ResultadosMatch({ resultados, mensagemVazia, rotuloContato }) {
   return (
     <div style={{ maxWidth: 420, margin: '28px auto 0' }}>
       <h3 style={{ fontFamily: 'Caveat', fontSize: 26, color: '#3A2E22', textAlign: 'center' }}>Resultado da análise</h3>
+      <p style={{ fontFamily: 'Work Sans', fontSize: 11.5, color: '#7A6A50', textAlign: 'center', marginTop: -4, marginBottom: 14 }}>
+        A IA é só um apoio — sempre confira as fotos com calma antes de decidir
+      </p>
       {resultados.length === 0 && (
         <p style={{ fontFamily: 'Work Sans', fontSize: 13, color: '#7A6A50', textAlign: 'center' }}>{mensagemVazia}</p>
       )}
@@ -325,11 +328,9 @@ function ResultadosMatch({ resultados, mensagemVazia, rotuloContato }) {
               {resultado.pontuacao}% de chance de ser o mesmo animal
             </div>
             <div style={{ fontSize: 12, color: '#7A6A50', marginTop: 2 }}>{resultado.motivo}</div>
-            {resultado.pontuacao >= 60 && (
-              <div style={{ fontSize: 12, color: '#5C7A5E', marginTop: 4 }}>
-                {rotuloContato}: {candidato.contato}
-              </div>
-            )}
+            <div style={{ fontSize: 12, color: '#5A4A38', marginTop: 4 }}>
+              {rotuloContato}: {candidato.contato} <span style={{ color: '#A08A63' }}>(confira a foto antes de contatar)</span>
+            </div>
           </div>
         </div>
       ))}

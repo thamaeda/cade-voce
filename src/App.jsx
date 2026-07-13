@@ -629,6 +629,70 @@ function FeedEncontrados({ atualizar }) {
   );
 }
 
+function FeedMatches({ atualizar }) {
+  const [matches, setMatches] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    setCarregando(true);
+    buscar('matches', { select: '*,pets_perdidos(*),pets_encontrados(*)', order: 'criado_em.desc' })
+      .then(setMatches)
+      .finally(() => setCarregando(false));
+  }, [atualizar]);
+
+  if (carregando) {
+    return <p style={{ textAlign: 'center', fontFamily: 'Work Sans', color: '#7A6A50' }}>Carregando matches...</p>;
+  }
+
+  if (matches.length === 0) {
+    return <p style={{ textAlign: 'center', fontFamily: 'Work Sans', color: '#7A6A50' }}>Nenhum match encontrado ainda. Assim que a IA achar uma correspondência forte (60%+), ela aparece aqui.</p>;
+  }
+
+  return (
+    <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {matches.map((m) => (
+        <div
+          key={m.id}
+          style={{
+            background: '#FFFDF8',
+            border: '1.5px solid #5C7A5E',
+            borderRadius: 10,
+            padding: 16,
+            fontFamily: 'Work Sans',
+            boxShadow: '0 4px 10px rgba(58,46,34,0.12)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {m.pets_perdidos?.foto_url && (
+              <img src={m.pets_perdidos.foto_url} alt="Pet perdido" style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 8, border: '2px solid #B34A3C' }} />
+            )}
+            <Heart size={22} color="#B34A3C" style={{ flexShrink: 0 }} />
+            {m.pets_encontrados?.foto_url && (
+              <img src={m.pets_encontrados.foto_url} alt="Pet encontrado" style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 8, border: '2px solid #5C7A5E' }} />
+            )}
+            <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+              <div style={{ fontWeight: 700, fontSize: 22, color: '#5C7A5E' }}>{Math.round(m.score_similaridade)}%</div>
+              <div style={{ fontSize: 11, color: '#7A6A50' }}>de similaridade</div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14, fontSize: 12.5, color: '#5A4A38', lineHeight: 1.6 }}>
+            <div>
+              <strong style={{ color: '#B34A3C' }}>Perdido por:</strong><br />
+              {m.pets_perdidos?.nome_tutor || 'não informado'}<br />
+              Contato: {m.pets_perdidos?.contato || '-'}
+            </div>
+            <div>
+              <strong style={{ color: '#5C7A5E' }}>Achado por:</strong><br />
+              {m.pets_encontrados?.nome_quem_achou || 'não informado'}<br />
+              Contato: {m.pets_encontrados?.contato || '-'}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [aba, setAba] = useState('feed');
   const [atualizar, setAtualizar] = useState(0);
@@ -636,6 +700,7 @@ export default function App() {
   const abas = [
     { id: 'feed', label: 'Mural' },
     { id: 'achados', label: 'Achados' },
+    { id: 'matches', label: 'Matches' },
     { id: 'perdi', label: 'Perdi meu pet' },
     { id: 'achei', label: 'Encontrei um pet' },
   ];
@@ -691,6 +756,7 @@ export default function App() {
 
       {aba === 'feed' && <Feed atualizar={atualizar} />}
       {aba === 'achados' && <FeedEncontrados atualizar={atualizar} />}
+      {aba === 'matches' && <FeedMatches atualizar={atualizar} />}
       {aba === 'perdi' && <FormularioPerdido onSucesso={() => setAtualizar((n) => n + 1)} />}
       {aba === 'achei' && <FormularioEncontrado onSucesso={() => setAtualizar((n) => n + 1)} />}
 
